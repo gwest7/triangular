@@ -126,6 +126,8 @@ export function triangleBackProp(tri: Triangle) {
 	return isPointingUp(tri) ? 'tB' : 'tT';
 }
 
+const zRest = -2;
+
 /**
  * Creates a grid of anchor points arranged in a triangular lattice and establishes neighbor relationships between
  * anchors and triangles, and calculates triangle vertex positions
@@ -213,18 +215,18 @@ export function genTriangles(rows: number, cols: number, distance = 0.05, paddin
 			tri.tR = tri.aR.tT as Triangle;
 			tri.tB = tri.aR.tLB;
 			tri.position = [
-				tri.aT?.x ?? 0, (tri.aT?.y ?? 0) - padding, 0,
-				tri.aR.x - anchorPadX, tri.aR.y + anchorPadY, 0,
-				tri.aL.x + anchorPadX, tri.aL.y + anchorPadY, 0
+				tri.aT?.x ?? 0, (tri.aT?.y ?? 0) - padding, zRest,
+				tri.aR.x - anchorPadX, tri.aR.y + anchorPadY, zRest,
+				tri.aL.x + anchorPadX, tri.aL.y + anchorPadY, zRest
 			];
 		} else {
 			tri.tL = tri.aL.tB as Triangle;
 			tri.tR = tri.aR.tB as Triangle;
 			tri.tT = tri.aR.tLT;
 			tri.position = [
-				tri.aB?.x ?? 0, (tri.aB?.y ?? 0) + padding, 0,
-				tri.aL.x + anchorPadX, tri.aL.y - anchorPadY, 0,
-				tri.aR.x - anchorPadX, tri.aR.y - anchorPadY, 0
+				tri.aB?.x ?? 0, (tri.aB?.y ?? 0) + padding, zRest,
+				tri.aL.x + anchorPadX, tri.aL.y - anchorPadY, zRest,
+				tri.aR.x - anchorPadX, tri.aR.y - anchorPadY, zRest
 			];
 		}
 		// calculate center point triangle
@@ -272,12 +274,15 @@ export function addGlobalAngleChanges(triangles: Triangle[]) {
 }
 
 const fadeInc = 0.001
+const zDropInc = 0.005;
 
 export class AnimatedTriangle {
 
 	triangle: Triangle;
 	index: number;
 	color: Color;
+	zOffset = 4;
+	positionOffsets: number[] = [0,0,0,0,0,0,0,0,0];
 
 	constructor(triangle: Triangle, index:number, color: Color) {
 		this.triangle = triangle;
@@ -288,10 +293,20 @@ export class AnimatedTriangle {
 	animate() {
 		// darken the color
 		this.color.offsetHSL(0, 0, -fadeInc);
+
+		// drop the triangle in Z
+		this.zOffset -= zDropInc;
+
 		// if close to faded turn black completely
 		if (this.isFaded()) {
 			this.color.setRGB(0, 0, 0);
+			this.zOffset = zRest;
 		}
+
+		this.positionOffsets[2] = this.zOffset;
+		this.positionOffsets[5] = this.zOffset;
+		this.positionOffsets[8] = this.zOffset;
+
 	}
 
 	isFaded(): boolean {
@@ -299,4 +314,14 @@ export class AnimatedTriangle {
 		this.color.getHSL(hsl);
 		return hsl.l < fadeInc;
 	}
+
+	getPositions(): number[] {
+		const [ax,ay,az,bx,by,bz,cx,cy,cz] = this.triangle.position;
+		const [dx,dy,dz,ex,ey,ez,fx,fy,fz] = this.positionOffsets;
+		return [
+			ax + dx, ay + dy, az + dz,
+			bx + ex, by + ey, bz + ez,
+			cx + fx, cy + fy, cz + fz
+		];
+	}	
 }

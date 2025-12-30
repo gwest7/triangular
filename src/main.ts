@@ -1,7 +1,7 @@
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, type HSL } from 'three/webgpu';
 import './style.css'
 import { Color, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
-import { AnimatedTriangle, genTriangles, isPointingUp, triangleBackProp, triangleTipProp, type Anchor, type Triangle } from './util';
+import { addGlobalAngleChanges, AnimatedTriangle, genTriangles, isPointingUp, triangleBackProp, triangleTipProp, type Anchor, type Triangle } from './util';
 
 const cols = 80;
 const rows = 60;
@@ -11,7 +11,7 @@ let anchors: Anchor[][];
 let triangles: Triangle[];
 let positions:Float32Array;
 let colors:Float32Array;
-
+let mousePos: { x: number; y: number } = { x: 0, y: 0 };
 
 function init() {
   scene = new Scene();
@@ -22,6 +22,7 @@ function init() {
   document.body.appendChild(renderer.domElement);
 
 	({ anchors, triangles} = genTriangles(rows, cols, size, size * 0.1));
+  addGlobalAngleChanges(triangles);
 
 	// reference triangle neighbors and calculate vertex positions
 	positions = new Float32Array(triangles.length * 9);
@@ -29,7 +30,6 @@ function init() {
 
   triangles.forEach((tri,i) => {
 		positions.set(tri.position, i * 9);
-		// const colour = pallet[Math.floor(Math.random() * pallet.length)].toArray();
     const colour = new Color().setRGB(0,0,0).toArray();
 		colors.set([...colour, ...colour, ...colour], i * 9);
   })
@@ -39,7 +39,7 @@ function init() {
   const lastAnchor = anchors[rows - 1][cols - 1];
   const centerX = lastAnchor.x / 2;
   const centerY = lastAnchor.y / 2;
-  camera.position.set(centerX, centerY, 4);
+  camera.position.set(centerX, centerY, 7);
   camera.lookAt(centerX, centerY, 0);
 
 	geometry = new BufferGeometry();
@@ -55,6 +55,7 @@ function init() {
 	scene.add(mesh);
 
   window.addEventListener('resize', onWindowResize);
+  window.addEventListener('mousemove', onMouseMove);
 	renderer.render(scene, camera);
 }
 
@@ -62,6 +63,11 @@ function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function onMouseMove(e:MouseEvent) {
+  mousePos.x = e.clientX;
+  mousePos.y = e.clientY;
 }
 
 
@@ -131,17 +137,28 @@ function animate(time = 0) {
 
   fadingTriangles.forEach((anim, tri) => {
     anim.animate();
+
     // update triangle color in geometry
-    const baseColor = anim.color.toArray();
-    colors.set([...baseColor, ...baseColor, ...baseColor], anim.index * 9);
+    const color = anim.color.toArray();
+    colors.set([...color, ...color, ...color], anim.index * 9);
+
+    positions.set(anim.getPositions(), tri.i * 9);
 
     //remove completely faded triangles
     anim.isFaded() && fadingTriangles.delete(tri);
   });
 
-  // geometry.attributes.position.needsUpdate = true;
+  geometry.attributes.position.needsUpdate = true;
   geometry.attributes.color.needsUpdate = true;
 
+  const mouseX = (window.innerWidth / 2 - mousePos.x) / window.innerWidth;
+  const mouseY = (window.innerHeight / 2 - mousePos.y) / window.innerHeight;
+  const centerX = (anchors[rows - 1][cols - 1].x) / 2;
+  const centerY = (anchors[rows - 1][cols - 1].y) / 2;
+  camera.position.x = centerX + mouseX * 4;
+  camera.position.y = centerY + mouseY * -4;
+  camera.lookAt(centerX, centerY, 0);
+  // camera.rotation.x = mouseY * 0.3;
   renderer.render(scene, camera);
 
   setTimeout(() => requestAnimationFrame(animate),50);
