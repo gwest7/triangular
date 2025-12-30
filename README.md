@@ -1,0 +1,1 @@
+After reading about WebGPU being supported in most browsers I got to work on a demo to test some things I have been wondering.
